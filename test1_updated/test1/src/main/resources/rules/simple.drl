@@ -1,0 +1,172 @@
+package rules;
+
+import java.util.Date;
+
+// Wafer data model classes
+declare Wafer
+    waferId : String
+    diameter : double
+    thickness : double
+    materialType : String
+    processStage : String
+    temperature : double
+    pressure : double
+    defectCount : int
+    batchId : String
+    timestamp : Date
+end
+
+declare ProcessStep
+    stepId : String
+    stepName : String
+    targetTemperature : double
+    targetPressure : double
+    maxDefectThreshold : int
+    duration : int
+end
+
+declare Alert
+    alertType : String
+    message : String
+    severity : String
+    waferId : String
+    timestamp : Date
+end
+
+// Rule 1: Temperature Control for Silicon Wafer Processing
+rule "Silicon Wafer Temperature Control"
+    when
+        $w : Wafer(materialType == "Silicon", 
+                   processStage == "Oxidation",
+                   temperature > 1100.0 || temperature < 800.0)
+    then
+        insert(new Alert("TEMPERATURE_VIOLATION", 
+                        "Silicon wafer " + $w.getWaferId() + " temperature out of range: " + $w.getTemperature() + "°C", 
+                        "HIGH", 
+                        $w.getWaferId(), 
+                        new Date()));
+        System.out.println("ALERT: Silicon wafer " + $w.getWaferId() + " temperature violation - Current: " + $w.getTemperature() + "°C");
+end
+
+// Rule 2: Pressure Monitoring for Etching Process
+rule "Etching Process Pressure Control"
+    when
+        $w : Wafer(processStage == "Etching", 
+                   pressure < 0.001 || pressure > 10.0)
+    then
+        insert(new Alert("PRESSURE_VIOLATION", 
+                        "Wafer " + $w.getWaferId() + " pressure out of specification: " + $w.getPressure() + " Torr", 
+                        "MEDIUM", 
+                        $w.getWaferId(), 
+                        new Date()));
+        System.out.println("ALERT: Wafer " + $w.getWaferId() + " etching pressure violation - Current: " + $w.getPressure() + " Torr");
+end
+
+// Rule 3: Defect Detection and Quality Control
+rule "Wafer Quality Control"
+    when
+        $w : Wafer(defectCount > 5)
+        $step : ProcessStep(stepName == $w.processStage, maxDefectThreshold < $w.defectCount)
+    then
+        insert(new Alert("QUALITY_ISSUE", 
+                        "Wafer " + $w.getWaferId() + " exceeds defect threshold: " + $w.getDefectCount() + " defects", 
+                        "HIGH", 
+                        $w.getWaferId(), 
+                        new Date()));
+        System.out.println("QUALITY ALERT: Wafer " + $w.getWaferId() + " has " + $w.getDefectCount() + " defects, exceeding threshold of " + $step.getMaxDefectThreshold());
+end
+
+// Rule 4: Batch Processing Optimization
+rule "Batch Processing Optimization"
+    when
+        $count : Number(intValue >= 25) from accumulate(
+            $w : Wafer(processStage == "Ready", batchId != null),
+            count($w)
+        )
+        $batchId : String() from accumulate(
+            $w : Wafer(processStage == "Ready", batchId != null),
+            collectList($w.getBatchId())
+        )
+    then
+        System.out.println("OPTIMIZATION: Batch ready for processing - " + $count + " wafers available");
+        System.out.println("Recommended action: Start batch processing for improved efficiency");
+end
+
+// Rule 5: Critical Process Parameter Correlation
+rule "Process Parameter Correlation"
+    when
+        $w : Wafer(processStage == "Deposition", 
+                   temperature > 900.0, 
+                   pressure > 5.0)
+    then
+        insert(new Alert("PROCESS_CORRELATION", 
+                        "Wafer " + $w.getWaferId() + " has high temperature AND pressure - potential process instability", 
+                        "MEDIUM", 
+                        $w.getWaferId(), 
+                        new Date()));
+        System.out.println("PROCESS ALERT: Wafer " + $w.getWaferId() + " - High temp (" + $w.getTemperature() + "°C) and pressure (" + $w.getPressure() + " Torr) correlation detected");
+end
+
+// Rule 6: Wafer Diameter Specification Check
+rule "Wafer Diameter Specification"
+    when
+        $w : Wafer(diameter < 199.5 || diameter > 200.5)
+    then
+        insert(new Alert("DIMENSION_VIOLATION", 
+                        "Wafer " + $w.getWaferId() + " diameter out of specification: " + $w.getDiameter() + "mm", 
+                        "HIGH", 
+                        $w.getWaferId(), 
+                        new Date()));
+        System.out.println("DIMENSION ALERT: Wafer " + $w.getWaferId() + " diameter " + $w.getDiameter() + "mm outside 200±0.5mm specification");
+end
+
+// Rule 7: Process Stage Progression
+rule "Lithography Process Readiness"
+    when
+        $w : Wafer(processStage == "Oxidation", 
+                   temperature >= 800.0, 
+                   temperature <= 1100.0,
+                   defectCount <= 2)
+    then
+        modify($w) { setProcessStage("Lithography") }
+        System.out.println("PROCESS: Wafer " + $w.getWaferId() + " advanced to Lithography stage");
+end
+
+// Rule 8: Equipment Maintenance Trigger
+rule "Equipment Maintenance Alert"
+    when
+        $defectiveCount : Number(intValue >= 3) from accumulate(
+            $w : Wafer(defectCount > 10, processStage == "Etching"),
+            count($w)
+        )
+    then
+        insert(new Alert("MAINTENANCE_REQUIRED", 
+                        "Multiple wafers with high defect count detected - equipment maintenance required", 
+                        "HIGH", 
+                        "EQUIPMENT", 
+                        new Date()));
+        System.out.println("MAINTENANCE ALERT: " + $defectiveCount + " wafers with high defects detected in Etching stage - Schedule equipment maintenance");
+end
+
+// Rule 9: Yield Optimization
+rule "Yield Optimization Recommendation"
+    when
+        $w : Wafer(materialType == "GaAs", 
+                   processStage == "Deposition",
+                   temperature < 850.0)
+    then
+        System.out.println("OPTIMIZATION: GaAs wafer " + $w.getWaferId() + " temperature (" + $w.getTemperature() + "°C) could be optimized for better yield");
+        System.out.println("Recommendation: Increase temperature to 850-900°C range for optimal GaAs deposition");
+end
+
+// Rule 10: Critical Alert Escalation
+rule "Critical Alert Escalation"
+    when
+        $criticalCount : Number(intValue >= 5) from accumulate(
+            $a : Alert(severity == "HIGH"),
+            count($a)
+        )
+    then
+        System.out.println("ESCALATION: " + $criticalCount + " critical alerts detected - Escalating to engineering team");
+        System.out.println("Action Required: Immediate engineering intervention needed");
+end

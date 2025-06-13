@@ -1,0 +1,9 @@
+package rules;
+
+rule "Sample Rule"
+when
+    $m String: String()
+    $eval( $s.equals("Hello Drools")  )
+then
+    System.out.println("Rule triggered at different rule storage: " + $m);
+end

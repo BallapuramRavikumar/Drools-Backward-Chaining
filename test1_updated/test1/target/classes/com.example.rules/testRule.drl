@@ -1,0 +1,16 @@
+package com.example.rules;
+
+rule "SimpleTest"
+   when
+      String()
+   then
+      System.out.println("A String was found");
+   end
+
+rule "Greeting"
+     when
+         $s: String()
+         eval( $s.equals("Hello Drools")  )
+     then
+         System.out.println("Drools: Hello, User!" +$s);
+     end

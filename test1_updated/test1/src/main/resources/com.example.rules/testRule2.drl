@@ -1,0 +1,21 @@
+package com.example.rules;
+
+import com.example.model.Applicant;
+
+rule "Underage Applicant"
+    salience 10
+    when
+        $a: Applicant(age < 18, valid == true)
+    then
+        modify($a) { setValid(false) };
+        System.out.println("Applicant " + $a.getName() + " is underage and not valid.");
+end
+
+rule "Adult Applicant"
+    salience 5
+    when
+        $a: Applicant(age >= 18, valid == false)
+    then
+        modify($a) { setValid(true) };
+        System.out.println("Applicant " + $a.getName() + " is now considered valid.");
+end
